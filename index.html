@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>X-Trade</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3"></script>
+  <style>
+    *{box-sizing:border-box} body{margin:0;background:#070b09;color:#eef7f1;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    .app{max-width:520px;margin:auto;padding:18px 14px 28px}
+    .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    .brand{display:flex;align-items:center;gap:12px}.logo{width:44px;height:44px;border-radius:14px;background:#18e875;color:#06200f;display:grid;place-items:center;font-size:24px;font-weight:900}
+    .name{font-weight:800;font-size:18px}.sub{font-size:11px;color:#8b9c93;letter-spacing:1.4px}
+    .help{background:#0e2118;border:1px solid #173b28;color:#6cf0a0;border-radius:20px;padding:9px 12px}
+    .label{font-size:12px;color:#899a91;margin:12px 5px 7px}
+    select,.panel{width:100%;background:#0d1511;border:1px solid #1c2c24;border-radius:16px;color:#f3faf6}
+    select{padding:15px;font-size:15px}
+    .controls{display:flex;gap:8px;margin:10px 0}.controls button{flex:1;padding:12px 8px;border-radius:12px;border:1px solid #20372a;background:#101a15;color:#b7c8bf;font-weight:700}
+    .controls button.active{background:#123d27;color:#6cff9e;border-color:#217c4a}
+    .price{display:flex;justify-content:space-between;align-items:end;padding:14px 4px 8px}.price small{color:#7f9088}.big{font-size:34px;font-weight:800}
+    .chart{padding:8px;background:#0b120f;border-radius:16px;border:1px solid #17251e}
+    canvas{width:100%!important;height:300px!important}
+    .signal{margin-top:14px;padding:16px;border-radius:16px;background:#0d1712;border:1px solid #1d3026}
+    .signal-head{display:flex;justify-content:space-between;color:#8fa197;font-size:12px}.verdict{font-size:25px;font-weight:900;margin:8px 0}
+    .buy{color:#62f59b}.sell{color:#ff6f86}.wait{color:#e9d27c}
+    .main{width:100%;margin-top:14px;border:0;border-radius:15px;padding:15px;background:#19df70;color:#04170c;font-size:16px;font-weight:900}
+    .note{font-size:11px;color:#718078;line-height:1.45;margin:14px 3px}
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="brand"><div class="logo">X</div><div><div class="name">X-Trade</div><div class="sub">MARKET ASSISTANT</div></div></div>
+    <button class="help">? Инструкция</button>
+  </div>
+
+  <div class="label">Валютная пара</div>
+  <select id="pair">
+    <option>USD/MYR OTC</option><option>EUR/USD OTC</option><option>GBP/USD OTC</option><option>USD/JPY OTC</option>
+  </select>
+
+  <div class="controls">
+    <button class="active" data-tf="M1">M1</button>
+    <button data-tf="M5">M5</button>
+    <button data-tf="M15">M15</button>
+  </div>
+
+  <div class="price"><div><small id="pairName">USD/MYR OTC</small><div class="big" id="price">3.90846</div></div><small>Последняя котировка<br><span id="time">--:--:--</span></small></div>
+
+  <div class="chart"><canvas id="chart"></canvas></div>
+
+  <div class="signal">
+    <div class="signal-head"><span>ТОРГОВЫЙ ВЕРДИКТ</span><span id="tfLabel">M1</span></div>
+    <div class="verdict wait" id="verdict">НАЖМИ «НАЙТИ СИГНАЛ»</div>
+    <div id="reason" style="color:#8fa197;font-size:12px">Демо-анализ EMA 9 / EMA 21</div>
+  </div>
+
+  <button class="main" id="signalBtn">🔎 Найти сигнал</button>
+  <div class="note">Учебный режим. Данные и сигналы демонстрационные и не являются финансовой рекомендацией. Перед использованием реальных денег нужна проверка стратегии на исторических данных и демо-счёте.</div>
+</div>
+
+<script>
+const tg = window.Telegram?.WebApp;
+tg?.ready(); tg?.expand();
+
+const labels = Array.from({length: 45}, (_,i)=>i+1);
+let base = 3.90846;
+let data = labels.map(()=> base + (Math.random()-.5)*0.004);
+const ctx = document.getElementById('chart');
+const chart = new Chart(ctx,{type:'line',data:{labels,datasets:[
+ {label:'Цена',data,borderWidth:2,pointRadius:0,tension:.25},
+ {label:'EMA 9',data:[],borderWidth:1.5,pointRadius:0,tension:.25},
+ {label:'EMA 21',data:[],borderWidth:1.5,pointRadius:0,tension:.25}
+]},options:{responsive:true,plugins:{legend:{labels:{color:'#9fb0a7'}}},scales:{
+ x:{ticks:{display:false},grid:{color:'#142019'}},
+ y:{ticks:{color:'#819189'},grid:{color:'#142019'}}
+}}});
+
+function ema(values, period){
+  const k=2/(period+1); let prev=values[0]; return values.map((v,i)=>i?prev=(v*k+prev*(1-k)):prev);
+}
+function refresh(){
+  for(let i=0;i<data.length;i++) data[i] += (Math.random()-.5)*0.0012;
+  base=data[data.length-1];
+  chart.data.datasets[0].data=[...data];
+  chart.data.datasets[1].data=ema(data,9);
+  chart.data.datasets[2].data=ema(data,21);
+  chart.update('none');
+  document.getElementById('price').textContent=base.toFixed(5);
+  document.getElementById('time').textContent=new Date().toLocaleTimeString('ru-RU');
+}
+refresh(); setInterval(refresh,2500);
+
+document.querySelectorAll('[data-tf]').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('[data-tf]').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); document.getElementById('tfLabel').textContent=b.dataset.tf;
+});
+
+document.getElementById('pair').onchange=e=>document.getElementById('pairName').textContent=e.target.value;
+
+document.getElementById('signalBtn').onclick=()=>{
+  const e9=ema(data,9).at(-1), e21=ema(data,21).at(-1);
+  const diff=e9-e21;
+  const verdict=document.getElementById('verdict');
+  verdict.className='verdict '+(Math.abs(diff)<0.00012?'wait':diff>0?'buy':'sell');
+  verdict.textContent=Math.abs(diff)<0.00012?'WAIT':diff>0?'BUY / CALL':'SELL / PUT';
+  document.getElementById('reason').textContent =
+    Math.abs(diff)<0.00012 ? 'EMA 9 и EMA 21 близко — сигнала недостаточно.' :
+    diff>0 ? 'EMA 9 выше EMA 21 — демонстрационный бычий сигнал.' :
+             'EMA 9 ниже EMA 21 — демонстрационный медвежий сигнал.';
+};
+</script>
+</body>
+</html>
